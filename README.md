@@ -93,6 +93,47 @@ uv pip install mcp boto3
 - "查看 ADA 用量"
 - "问 ADA 关于 EFS 跨可用区流量费的问题"
 
+## AWS 认证
+
+MCP 服务器通过 boto3 获取 AWS 凭证，因此需要**预先使用 AWS CLI 登录**，且登录的 IAM 用户/角色需要有 DevOps Agent 的权限。
+
+### 1. 配置 AWS CLI 登录
+
+```bash
+# 方式一：SSO 登录（推荐）
+aws configure sso --profile team_account
+aws sso login --profile team_account
+
+# 方式二：配置 AK/SK
+aws configure --profile team_account
+```
+
+### 2. 确保 IAM 权限
+
+登录的用户/角色需要以下权限：
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "devops-agent:*",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### 3. 验证登录状态
+
+```bash
+# 确认身份正确
+aws sts get-caller-identity --profile team_account
+```
+
+MCP 配置中的 `AWS_PROFILE` 环境变量指定使用哪个 profile，boto3 会自动从 `~/.aws/credentials` 或 SSO 缓存中读取对应凭证。
+
 ## 获取 Agent Space ID
 
 1. 登录 AWS Console
