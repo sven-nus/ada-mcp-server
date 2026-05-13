@@ -142,36 +142,59 @@ def ada_list_goals(agent_space_id: str = "") -> str:
 
 
 @mcp.tool()
-def ada_list_journal(agent_space_id: str = "", limit: int = 20) -> str:
-    """List journal records (audit trail) from DevOps Agent."""
+def ada_list_investigations(agent_space_id: str = "", status: str = "", limit: int = 10) -> str:
+    """List investigations (tasks) from DevOps Agent. Filter by status: PENDING_START, IN_PROGRESS, COMPLETED, FAILED, CANCELLED."""
     space_id = agent_space_id or DEFAULT_SPACE_ID
     if not space_id:
         return "Error: agent_space_id is required."
     try:
         client = get_client()
-        resp = client.list_journal_records(agentSpaceId=space_id, limit=limit)
-        records = resp.get("journalRecords", [])
-        if not records:
-            return "No journal records found."
-        lines = [f"- [{r.get('createdAt','')}] {r.get('title', r.get('type',''))}: {r.get('summary','')}" for r in records]
+        params = {"limit": limit, "order": "DESC", "sortField": "CREATED_AT"}
+        if status:
+            params["status"] = status
+        resp = client.list_investigations(**params)
+        investigations = resp.get("investigations", [])
+        if not investigations:
+            return "No investigations found."
+        lines = []
+        for inv in investigations:
+            lines.append(f"- **{inv.get('title','')}** (taskId: {inv.get('taskId','')}, status: {inv.get('status','')}, priority: {inv.get('priority','')})")
         return "\n".join(lines)
     except (ClientError, BotoCoreError) as e:
         return handle_error(e)
 
 
 @mcp.tool()
-def ada_list_executions(agent_space_id: str = "", limit: int = 20) -> str:
-    """List recent executions (chat sessions and automated actions)."""
+def ada_list_executions(task_id: str, agent_space_id: str = "", limit: int = 20) -> str:
+    """List executions for a specific investigation/task. Requires a taskId from ada_list_investigations."""
     space_id = agent_space_id or DEFAULT_SPACE_ID
     if not space_id:
         return "Error: agent_space_id is required."
     try:
         client = get_client()
-        resp = client.list_executions(agentSpaceId=space_id, limit=limit)
+        resp = client.list_executions(agentSpaceId=space_id, taskId=task_id, limit=limit)
         execs = resp.get("executions", [])
         if not execs:
             return "No executions found."
-        lines = [f"- [{e.get('createdAt','')}] {e.get('executionId','')} (status: {e.get('status','')})" for e in execs]
+        lines = [f"- [{e.get('createdAt','')}] {e.get('executionId','')} (status: {e.get('status','')}, agent: {e.get('agentType','')})" for e in execs]
+        return "\n".join(lines)
+    except (ClientError, BotoCoreError) as e:
+        return handle_error(e)
+
+
+@mcp.tool()
+def ada_list_journal(execution_id: str, agent_space_id: str = "", limit: int = 20) -> str:
+    """List journal records for a specific execution. Requires an executionId from ada_list_executions."""
+    space_id = agent_space_id or DEFAULT_SPACE_ID
+    if not space_id:
+        return "Error: agent_space_id is required."
+    try:
+        client = get_client()
+        resp = client.list_journal_records(agentSpaceId=space_id, executionId=execution_id, limit=limit)
+        records = resp.get("journalRecords", [])
+        if not records:
+            return "No journal records found."
+        lines = [f"- [{r.get('createdAt','')}] {r.get('title', r.get('type',''))}: {r.get('summary','')}" for r in records]
         return "\n".join(lines)
     except (ClientError, BotoCoreError) as e:
         return handle_error(e)
